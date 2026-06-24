@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรแกรมนับคำภาษาไทย (Word Counter Pro)</title>
+    <style>
+        :root {
+            --primary-color: #2b579a; /* สีน้ำเงินสไตล์ Word */
+            --bg-color: #f3f2f1;
+            --card-bg: #ffffff;
+            --text-color: #323130;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Helvetica Neue', 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-top: 0;
+            font-size: 24px;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 10px;
+        }
+
+        .security-badge {
+            background-color: #dff6dd;
+            color: #107c41;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: inline-block;
+            font-weight: bold;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 15px;
+            border: 1px solid #a19f9d;
+            border-radius: 4px;
+            font-size: 16px;
+            line-height: 1.6;
+            resize: vertical;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(43, 87, 154, 0.2);
+        }
+
+        .counter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .counter-box {
+            background: #faf9f8;
+            border: 1px solid #edebe9;
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .counter-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .counter-label {
+            font-size: 14px;
+            color: #605e5c;
+        }
+
+        footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #a19f9d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>โปรแกรมนับคำและอักขระภาษาไทย (MS Word Matcher)</h1>
+    <div class="security-badge">🔒 ปลอดภัย 100%: ประมวลผลบนเครื่องของคุณเท่านั้น ไม่มีการส่งข้อมูลไปที่อื่น</div>
+    
+    <textarea id="textInput" placeholder="วางข้อความหรือพิมพ์ที่นี่เพื่อเริ่มต้นนับคำ..."></textarea>
+
+    <div class="counter-grid">
+        <div class="counter-box">
+            <div class="counter-value" id="wordCount">0</div>
+            <div class="counter-label">จำนวนคำ (Words)</div>
+        </div>
+        <div class="counter-box">
+            <div class="counter-value" id="charNoSpaceCount">0</div>
+            <div class="counter-label">ตัวอักษร (ไม่รวมช่องว่าง)</div>
+        </div>
+        <div class="counter-box">
+            <div class="counter-value" id="charWithSpaceCount">0</div>
+            <div class="counter-label">ตัวอักษร (รวมช่องว่าง)</div>
+        </div>
+        <div class="counter-box">
+            <div class="counter-value" id="paragraphCount">0</div>
+            <div class="counter-label">ย่อหน้า (Paragraphs)</div>
+        </div>
+    </div>
+</div>
+
+<footer>
+    พัฒนาขึ้นเพื่อความปลอดภัยและประหยัดพลังงาน | ข้อมูลทั้งหมดประมวลผลบน Client-side เท่านั้น
+</footer>
+
+<script>
+    const textInput = document.getElementById('textInput');
+    const wordCountEl = document.getElementById('wordCount');
+    const charNoSpaceEl = document.getElementById('charNoSpaceCount');
+    const charWithSpaceEl = document.getElementById('charWithSpaceCount');
+    const paragraphCountEl = document.getElementById('paragraphCount');
+
+    // ตรวจสอบว่าเบราว์เซอร์รองรับ Intl.Segmenter หรือไม่
+    const hasSegmenter = typeof Intl !== 'undefined' && typeof Intl.Segmenter !== 'undefined';
+
+    function countMetrics(text) {
+        if (!text) {
+            return { words: 0, charsNoSpace: 0, charsWithSpace: 0, paragraphs: 0 };
+        }
+
+        // 1. นับตัวอักษรทั้งหมด (รวมช่องว่าง)
+        const charsWithSpace = text.length;
+
+        // 2. นับตัวอักษร (ไม่รวมช่องว่างและตัวขึ้นบรรทัดใหม่)
+        const charsNoSpace = text.replace(/[\s\n\r]/g, '').length;
+
+        // 3. นับย่อหน้า (เลียนแบบ Logic ของ Word: นับตามการขึ้นบรรทัดใหม่ที่มีข้อความ)
+        const paragraphs = text.split(/\r\n|\r|\n/).filter(p => p.trim().length > 0).length;
+
+        // 4. นับคำ (เลียนแบบ MS Word Logic)
+        let words = 0;
+        
+        if (hasSegmenter) {
+            // ใช้ Thai Word Segmentation มาตรฐานระดับเบราว์เซอร์
+            const segmenter = new Intl.Segmenter('th', { granularity: 'word' });
+            const segments = segmenter.segment(text);
+            
+            for (const segment of segments) {
+                // MS Word จะไม่นับช่องว่าง และเครื่องหมายวรรคตอนบางประเภทเป็น "คำ"
+                if (segment.isWordLike) {
+                    words++;
+                } else {
+                    // จัดการกรณีพิเศษ: ภาษาไทยบางคำถ้านับด้วย Intl อาจถูกมองไม่เป็น WordLike 
+                    // แต่ถ้าเป็นอักขระไทยต่อเนื่องกันที่ไม่มีช่องว่าง Word จะนับเป็นคำ
+                    const segmentText = segment.segment.trim();
+                    if (segmentText.length > 0 && /^[ก-์]+$/.test(segmentText)) {
+                        words++;
+                    }
+                }
+            }
+        } else {
+            // Fallback เผื่อเบราว์เซอร์เก่ามาก (ตัดคำด้วยช่องว่างแบบพื้นฐาน)
+            words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+        }
+
+        return { words, charsNoSpace, charsWithSpace, paragraphs };
+    }
+
+    function updateCounters() {
+        const text = textInput.value;
+        const metrics = countMetrics(text);
+
+        wordCountEl.textContent = metrics.words.toLocaleString();
+        charNoSpaceEl.textContent = metrics.charsNoSpace.toLocaleString();
+        charWithSpaceEl.textContent = metrics.charsWithSpace.toLocaleString();
+        paragraphCountEl.textContent = metrics.paragraphs.toLocaleString();
+    }
+
+    // อัปเดตแบบ Real-time เมื่อมีการพิมพ์หรือวางข้อความ
+    textInput.addEventListener('input', updateCounters);
+</script>
+
+</body>
+</html>
