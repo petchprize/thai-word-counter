@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>โปรแกรมนับคำภาษาไทย (Word Counter Pro v2)</title>
+    <title>โปรแกรมนับคำภาษาไทย (Word Counter Pro v2.1 Fixed)</title>
     <style>
         :root {
             --primary-color: #2b579a;
@@ -107,10 +107,10 @@
 <body>
 
 <div class="container">
-    <h1>โปรแกรมนับคำภาษาไทย (MS Word Matcher v2)</h1>
-    <div class="security-badge">🔒 ปลอดภัยสูงสุด: ประมวลผลบนเบราว์เซอร์เครื่องคุณ 100% ไม่มีการบันทึกข้อมูล</div>
+    <h1>โปรแกรมนับคำภาษาไทย (MS Word Matcher v2.1)</h1>
+    <div class="security-badge">🔒 ปลอดภัยสูงสุด: ประมวลผลบนเบราว์เซอร์เครื่องคุณ 100% ไม่ส่งข้อมูลไปเซิร์ฟเวอร์</div>
     
-    <textarea id="textInput" placeholder="วางข้อความนิยายเพื่อทดสอบนับคำ..."></textarea>
+    <textarea id="textInput" placeholder="วางข้อความหรือพิมพ์ที่นี่เพื่อทดสอบนับคำ..."></textarea>
 
     <div class="counter-grid">
         <div class="counter-box">
@@ -133,7 +133,7 @@
 </div>
 
 <footer>
-    ระบบปรับปรุงอัลกอริทึมเพื่อลบคำเกินเลียนแบบ Microsoft Word | ฟรี ไม่มีค่าใช้จ่าย
+    ระบบเวอร์ชันแก้ไขบั๊กค้าง | รองรับการนับคำแม่นยำและเสถียรบนทุกเบราว์เซอร์
 </footer>
 
 <script>
@@ -143,17 +143,10 @@
     const charWithSpaceEl = document.getElementById('charWithSpaceCount');
     const paragraphCountEl = document.getElementById('paragraphCount');
 
-    // รายการคำขึ้นต้นยอดฮิตที่ Word มองรวมเป็นคำเดียว แต่เบราว์เซอร์ชอบตัดแยก
-    // เราจะใช้ตรวจจับเพื่อหักลบจำนวนคำที่เกินมา
+    // รายการกฎคำควบรวมสไตล์ MS Word
     const prefixRules = [
-        /การ[ก-์]+/g,     // การเดินทาง, การกิน, การเรียน
-        /ความ[ก-์]+/g,    // ความรู้, ความรัก, ความคิด
-        /ผู้[ก-์]+/g,      // ผู้เขียน, ผู้ร้าย, ผู้ใหญ่
-        /นัก[ก-์]+/g,      // นักเขียน, นักเรียน, นักศึกษา
-        /น่า[ก-์]+/g,      // น่ารัก, น่ากลัว, น่าสนใจ
-        /อย่าง[ก-์]+/g,    // อย่างไร, อย่างดี, อย่างรวดเร็ว
-        /เครื่อง[ก-์]+/g,   // เครื่องบิน, เครื่องซักผ้า
-        /ที่[ก-์]+/g        // ที่นี่, ที่ไหน, ที่รัก
+        /การ[ก-์]+/g, /ความ[ก-์]+/g, /ผู้[ก-์]+/g, /นัก[ก-์]+/g, 
+        /น่า[ก-์]+/g, /อย่าง[ก-์]+/g, /เครื่อง[ก-์]+/g, /ที่[ก-์]+/g
     ];
 
     function countMetrics(text) {
@@ -167,7 +160,7 @@
 
         let baseWords = 0;
         
-        // 1. นับคำขั้นต้นโดยใช้ระบบเบราว์เซอร์
+        // 1. นับคำพื้นฐาน
         if (typeof Intl !== 'undefined' && typeof Intl.Segmenter !== 'undefined') {
             const segmenter = new Intl.Segmenter('th', { granularity: 'word' });
             const segments = segmenter.segment(text);
@@ -182,51 +175,51 @@
                     }
                 }
             }
+
+            // 2. ปรับลดจำนวนคำที่ระบบเบราว์เซอร์แอบตัดเกิน (เช่น ความรู้สึก -> ความ + รู้สึก)
+            let wordsOvercounted = 0;
+            const innerSegmenter = new Intl.Segmenter('th', { granularity: 'word' });
+
+            prefixRules.forEach(regex => {
+                // รีเซ็ต index ของ regex เพื่อป้องกันอาการค้าง
+                regex.lastIndex = 0; 
+                const matches = text.match(regex);
+                
+                if (matches) {
+                    matches.forEach(match => {
+                        const innerSegments = Array.from(innerSegmenter.segment(match))
+                                                   .filter(s => s.isWordLike || /^[ก-์]+$/.test(s.segment.trim()));
+                        if (innerSegments.length > 1) {
+                            wordsOvercounted += (innerSegments.length - 1);
+                        }
+                    });
+                }
+            });
+
+            let finalWordCount = baseWords - wordsOvercounted;
+            if (finalWordCount < 1 && text.trim().length > 0) finalWordCount = 1;
+
+            return { words: finalWordCount, charsNoSpace, charsWithSpace, paragraphs };
+
         } else {
+            // กรณี Browser ไม่รองรับ (เช่น Browser รุ่นเก่ามาก)
             baseWords = text.trim().split(/\s+/).filter(w => w.length > 0).length;
             return { words: baseWords, charsNoSpace, charsWithSpace, paragraphs };
         }
-
-        // 2. ขบวนการปรับจูน (Correction Logic) เพื่อลดคำที่ระบบตัดเกินให้ตรงกับ Word
-        let wordsOvercounted = 0;
-
-        prefixRules.forEach(regex => {
-            const matches = text.match(regex);
-            if (matches) {
-                matches.forEach(match => {
-                    // ใช้ตัวตัดคำตัวเดิมเช็คว่าในคำนี้มันแอบตัดไปกี่คำ
-                    const innerSegmenter = new Intl.Segmenter('th', { granularity: 'word' });
-                    const innerSegments = Array.from(innerSegmenter.segment(match)).filter(s => s.isWordLike || /^[ก-์]+$/.test(s.segment.trim()));
-                    
-                    if (innerSegments.length > 1) {
-                        // ถ้าคำย่อยถูกตัดมากกว่า 1 คำ (เช่น "ความรู้" โดนแยกเป็น 2) 
-                        // ให้หักลบส่วนเกินออก (เช่น หักออก 1 คำ เพื่อให้คำนั้นเหลือนับเป็น 1 คำพอดี)
-                        wordsOvercounted += (innerSegments.length - 1);
-                    }
-                });
-            });
-        });
-
-        // คำนวณคำสุทธิ
-        let finalWordCount = baseWords - wordsOvercounted;
-        if (finalWordCount < 1 && text.trim().length > 0) finalWordCount = 1;
-
-        return { 
-            words: finalWordCount, 
-            charsNoSpace, 
-            charsWithSpace, 
-            paragraphs 
-        };
     }
 
     function updateCounters() {
-        const text = textInput.value;
-        const metrics = countMetrics(text);
+        try {
+            const text = textInput.value;
+            const metrics = countMetrics(text);
 
-        wordCountEl.textContent = metrics.words.toLocaleString();
-        charNoSpaceEl.textContent = metrics.charsNoSpace.toLocaleString();
-        charWithSpaceEl.textContent = metrics.charsWithSpace.toLocaleString();
-        paragraphCountEl.textContent = metrics.paragraphs.toLocaleString();
+            wordCountEl.textContent = metrics.words.toLocaleString();
+            charNoSpaceEl.textContent = metrics.charsNoSpace.toLocaleString();
+            charWithSpaceEl.textContent = metrics.charsWithSpace.toLocaleString();
+            paragraphCountEl.textContent = metrics.paragraphs.toLocaleString();
+        } catch (error) {
+            console.error("Error updating counters:", error);
+        }
     }
 
     textInput.addEventListener('input', updateCounters);
