@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>โปรแกรมนับคำภาษาไทย (Word Counter Pro)</title>
+    <title>โปรแกรมนับคำภาษาไทย (Word Counter Pro v2)</title>
     <style>
         :root {
-            --primary-color: #2b579a; /* สีน้ำเงินสไตล์ Word */
+            --primary-color: #2b579a;
             --bg-color: #f3f2f1;
             --card-bg: #ffffff;
             --text-color: #323130;
@@ -107,10 +107,10 @@
 <body>
 
 <div class="container">
-    <h1>โปรแกรมนับคำและอักขระภาษาไทย (MS Word Matcher)</h1>
-    <div class="security-badge">🔒 ปลอดภัย 100%: ประมวลผลบนเครื่องของคุณเท่านั้น ไม่มีการส่งข้อมูลไปที่อื่น</div>
+    <h1>โปรแกรมนับคำภาษาไทย (MS Word Matcher v2)</h1>
+    <div class="security-badge">🔒 ปลอดภัยสูงสุด: ประมวลผลบนเบราว์เซอร์เครื่องคุณ 100% ไม่มีการบันทึกข้อมูล</div>
     
-    <textarea id="textInput" placeholder="วางข้อความหรือพิมพ์ที่นี่เพื่อเริ่มต้นนับคำ..."></textarea>
+    <textarea id="textInput" placeholder="วางข้อความนิยายเพื่อทดสอบนับคำ..."></textarea>
 
     <div class="counter-grid">
         <div class="counter-box">
@@ -133,7 +133,7 @@
 </div>
 
 <footer>
-    พัฒนาขึ้นเพื่อความปลอดภัยและประหยัดพลังงาน | ข้อมูลทั้งหมดประมวลผลบน Client-side เท่านั้น
+    ระบบปรับปรุงอัลกอริทึมเพื่อลบคำเกินเลียนแบบ Microsoft Word | ฟรี ไม่มีค่าใช้จ่าย
 </footer>
 
 <script>
@@ -143,50 +143,80 @@
     const charWithSpaceEl = document.getElementById('charWithSpaceCount');
     const paragraphCountEl = document.getElementById('paragraphCount');
 
-    // ตรวจสอบว่าเบราว์เซอร์รองรับ Intl.Segmenter หรือไม่
-    const hasSegmenter = typeof Intl !== 'undefined' && typeof Intl.Segmenter !== 'undefined';
+    // รายการคำขึ้นต้นยอดฮิตที่ Word มองรวมเป็นคำเดียว แต่เบราว์เซอร์ชอบตัดแยก
+    // เราจะใช้ตรวจจับเพื่อหักลบจำนวนคำที่เกินมา
+    const prefixRules = [
+        /การ[ก-์]+/g,     // การเดินทาง, การกิน, การเรียน
+        /ความ[ก-์]+/g,    // ความรู้, ความรัก, ความคิด
+        /ผู้[ก-์]+/g,      // ผู้เขียน, ผู้ร้าย, ผู้ใหญ่
+        /นัก[ก-์]+/g,      // นักเขียน, นักเรียน, นักศึกษา
+        /น่า[ก-์]+/g,      // น่ารัก, น่ากลัว, น่าสนใจ
+        /อย่าง[ก-์]+/g,    // อย่างไร, อย่างดี, อย่างรวดเร็ว
+        /เครื่อง[ก-์]+/g,   // เครื่องบิน, เครื่องซักผ้า
+        /ที่[ก-์]+/g        // ที่นี่, ที่ไหน, ที่รัก
+    ];
 
     function countMetrics(text) {
-        if (!text) {
+        if (!text || text.trim() === '') {
             return { words: 0, charsNoSpace: 0, charsWithSpace: 0, paragraphs: 0 };
         }
 
-        // 1. นับตัวอักษรทั้งหมด (รวมช่องว่าง)
         const charsWithSpace = text.length;
-
-        // 2. นับตัวอักษร (ไม่รวมช่องว่างและตัวขึ้นบรรทัดใหม่)
         const charsNoSpace = text.replace(/[\s\n\r]/g, '').length;
-
-        // 3. นับย่อหน้า (เลียนแบบ Logic ของ Word: นับตามการขึ้นบรรทัดใหม่ที่มีข้อความ)
         const paragraphs = text.split(/\r\n|\r|\n/).filter(p => p.trim().length > 0).length;
 
-        // 4. นับคำ (เลียนแบบ MS Word Logic)
-        let words = 0;
+        let baseWords = 0;
         
-        if (hasSegmenter) {
-            // ใช้ Thai Word Segmentation มาตรฐานระดับเบราว์เซอร์
+        // 1. นับคำขั้นต้นโดยใช้ระบบเบราว์เซอร์
+        if (typeof Intl !== 'undefined' && typeof Intl.Segmenter !== 'undefined') {
             const segmenter = new Intl.Segmenter('th', { granularity: 'word' });
             const segments = segmenter.segment(text);
             
             for (const segment of segments) {
-                // MS Word จะไม่นับช่องว่าง และเครื่องหมายวรรคตอนบางประเภทเป็น "คำ"
                 if (segment.isWordLike) {
-                    words++;
+                    baseWords++;
                 } else {
-                    // จัดการกรณีพิเศษ: ภาษาไทยบางคำถ้านับด้วย Intl อาจถูกมองไม่เป็น WordLike 
-                    // แต่ถ้าเป็นอักขระไทยต่อเนื่องกันที่ไม่มีช่องว่าง Word จะนับเป็นคำ
                     const segmentText = segment.segment.trim();
                     if (segmentText.length > 0 && /^[ก-์]+$/.test(segmentText)) {
-                        words++;
+                        baseWords++;
                     }
                 }
             }
         } else {
-            // Fallback เผื่อเบราว์เซอร์เก่ามาก (ตัดคำด้วยช่องว่างแบบพื้นฐาน)
-            words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+            baseWords = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+            return { words: baseWords, charsNoSpace, charsWithSpace, paragraphs };
         }
 
-        return { words, charsNoSpace, charsWithSpace, paragraphs };
+        // 2. ขบวนการปรับจูน (Correction Logic) เพื่อลดคำที่ระบบตัดเกินให้ตรงกับ Word
+        let wordsOvercounted = 0;
+
+        prefixRules.forEach(regex => {
+            const matches = text.match(regex);
+            if (matches) {
+                matches.forEach(match => {
+                    // ใช้ตัวตัดคำตัวเดิมเช็คว่าในคำนี้มันแอบตัดไปกี่คำ
+                    const innerSegmenter = new Intl.Segmenter('th', { granularity: 'word' });
+                    const innerSegments = Array.from(innerSegmenter.segment(match)).filter(s => s.isWordLike || /^[ก-์]+$/.test(s.segment.trim()));
+                    
+                    if (innerSegments.length > 1) {
+                        // ถ้าคำย่อยถูกตัดมากกว่า 1 คำ (เช่น "ความรู้" โดนแยกเป็น 2) 
+                        // ให้หักลบส่วนเกินออก (เช่น หักออก 1 คำ เพื่อให้คำนั้นเหลือนับเป็น 1 คำพอดี)
+                        wordsOvercounted += (innerSegments.length - 1);
+                    }
+                });
+            });
+        });
+
+        // คำนวณคำสุทธิ
+        let finalWordCount = baseWords - wordsOvercounted;
+        if (finalWordCount < 1 && text.trim().length > 0) finalWordCount = 1;
+
+        return { 
+            words: finalWordCount, 
+            charsNoSpace, 
+            charsWithSpace, 
+            paragraphs 
+        };
     }
 
     function updateCounters() {
@@ -199,7 +229,6 @@
         paragraphCountEl.textContent = metrics.paragraphs.toLocaleString();
     }
 
-    // อัปเดตแบบ Real-time เมื่อมีการพิมพ์หรือวางข้อความ
     textInput.addEventListener('input', updateCounters);
 </script>
 
