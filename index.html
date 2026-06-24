@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>โปรแกรมนับคำภาษาไทย (Word Counter Pro v3.0 Ultimate)</title>
+    <title>โปรแกรมนับคำภาษาไทย (Word Counter Pro v3.5 Final)</title>
     <style>
         :root {
             --primary-color: #2b579a;
@@ -107,8 +107,8 @@
 <body>
 
 <div class="container">
-    <h1>โปรแกรมนับคำภาษาไทย (MS Word Matcher v3.0)</h1>
-    <div class="security-badge">🔒 ปลอดภัยสูงสุด: ประมวลผลบนเบราว์เซอร์เครื่องคุณ 100% ไม่ส่งข้อมูลไปเซิร์ฟเวอร์</div>
+    <h1>โปรแกรมนับคำภาษาไทย (MS Word Matcher v3.5)</h1>
+    <div class="security-badge">🔒 ปลอดภัย 100%: ประมวลผลบนเครื่องคอมพิวเตอร์ของคุณเท่านั้น</div>
     
     <textarea id="textInput" placeholder="วางข้อความเพื่อทดสอบนับคำ..."></textarea>
 
@@ -133,7 +133,7 @@
 </div>
 
 <footer>
-    ระบบเวอร์ชัน v3.0 แก้ไขสมบูรณ์ | ใช้กลไกแยกแยะคำแบบละเอียดตามมาตรฐาน Word
+    เวอร์ชัน 3.5 | ปรับจูนการนับเครื่องหมายและไม้ยมกให้เทียบเท่า Microsoft Word
 </footer>
 
 <script>
@@ -161,19 +161,21 @@
             for (const segment of segments) {
                 const segText = segment.segment.trim();
                 
-                // ถ้ายกเลิกการใช้หักลบแบบเก่า แล้วกลับมาดูพฤติกรรมรายคำ:
-                // 1. ถ้าเบราว์เซอร์บอกว่าเป็น WordLike (คำทั่วไป, ตัวเลข, อังกฤษ) นับทันที
-                if (segment.isWordLike) {
-                    words++;
-                } 
-                // 2. ดักเก็บกรณีอักขระไทยหรือเครื่องหมายพิเศษบางตัว (เช่น ไปยาลน้อย ฯ, ไม้ยมก ๆ) 
-                // ที่ Word นับแยกเป็นอีกคำ แต่เบราว์เซอร์มองไม่เป็น WordLike
-                else if (segText.length > 0 && !/[\s\n\r.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g.test(segText)) {
+                // 1. คัดกรองสิ่งที่ไม่ใช่คำออก (ช่องว่าง, ตัวขึ้นบรรทัดใหม่)
+                if (!segText) continue;
+
+                // 2. เคลียร์เครื่องหมายวรรคตอนเดี่ยวๆ และไม้ยมก/ไปยาลน้อย 
+                // เพราะ Word จะไม่นับพวกนี้เป็นคำเพิ่ม (เช่น "มากๆ" Word นับเป็น 1 คำ แต่เว็บชอบนับเป็น 2 คำ)
+                if (/^[ๆฯ฿.,\/#!$%\^&\*;:{}=\-_`~()?"'’“”]$/.test(segText)) {
+                    continue; 
+                }
+
+                // 3. ถ้าเป็นคำทั่วไป (WordLike) หรือมีตัวอักษรไทย/อังกฤษ/ตัวเลข ให้รับนับเป็น 1 คำ
+                if (segment.isWordLike || /^[ก-์a-zA-Z0-9]+$/.test(segText)) {
                     words++;
                 }
             }
         } else {
-            // Fallback
             words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
         }
 
